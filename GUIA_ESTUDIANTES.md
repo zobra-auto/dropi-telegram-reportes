@@ -74,7 +74,7 @@ El código ya está listo en un repositorio de GitHub. Haz todo esto por mí, pa
 verificando cada paso antes de continuar:
 
 1. Clona el repositorio en una carpeta llamada "dropi-reportes" dentro de donde estamos:
-   git clone https://github.com/zobra-auto/dropi-telegram-reportes.git dropi-reportes
+   git clone https://github.com/zobra-auto/dropi-telegram-reportes dropi-reportes
    Luego entra a esa carpeta.
 
 2. Detecta mi sistema operativo (Mac o Windows) y la versión de Python disponible.
