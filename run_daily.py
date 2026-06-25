@@ -20,11 +20,47 @@ Uso:
 from __future__ import annotations
 
 import argparse
+import subprocess
 import sys
 import traceback
 from datetime import datetime
 
 from common import CHANGES_DIR, load_config
+
+
+def _ensure_playwright() -> None:
+    """Reinstala Playwright+Chromium automáticamente si el módulo no está disponible."""
+    try:
+        import importlib
+        importlib.import_module("playwright")
+        return
+    except ImportError:
+        print("[startup] Playwright no encontrado — reinstalando automáticamente...")
+
+    cmds = [
+        [sys.executable, "-m", "pip", "install", "playwright", "--break-system-packages", "-q"],
+        [sys.executable, "-m", "pip", "install", "playwright", "-q"],
+    ]
+    installed = False
+    for cmd in cmds:
+        if subprocess.run(cmd, capture_output=True).returncode == 0:
+            installed = True
+            break
+
+    if not installed:
+        raise RuntimeError(
+            "No se pudo reinstalar Playwright. "
+            "Corre manualmente: pip3 install playwright --break-system-packages"
+        )
+
+    result = subprocess.run(
+        [sys.executable, "-m", "playwright", "install", "chromium"],
+        capture_output=True, text=True,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"Playwright instalado pero Chromium falló: {result.stderr[:200]}")
+
+    print("[startup] Playwright reinstalado correctamente")
 from diff import compute_diff, render_telegram, save_changes
 from snapshot import (
     latest_snapshot_before,
@@ -60,6 +96,7 @@ def _build_today_snapshot(args, report_date: str) -> dict:
 
 
 def main() -> int:
+    _ensure_playwright()
     cfg = load_config()
     ap = argparse.ArgumentParser(description="Corrida diaria de Dropi.")
     ap.add_argument("--window-days", type=int, default=int(cfg.get("DROPI_WINDOW_DAYS", 45)))

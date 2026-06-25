@@ -1,38 +1,72 @@
 @echo off
 REM =====================================================================
 REM  windows_instalar.bat
-REM  Registra una tarea en el Task Scheduler de Windows para correr
-REM  run_daily.py cada mañana a la hora que elijas.
+REM  Instala DOS tareas en el Task Scheduler de Windows:
+REM    1. Reporte diario (run_daily.py) a la hora elegida
+REM    2. Watchdog (watchdog.py) 2 horas despues
 REM
-REM  Uso (como Administrador):
-REM    windows_instalar.bat 7    -> corre a las 07:00
-REM    windows_instalar.bat 8    -> corre a las 08:00
-REM  (default: 7 si no se pasa argumento)
+REM  Uso (ejecutar como Administrador):
+REM    windows_instalar.bat 7    -> reporte 07:00, watchdog 09:00
+REM    windows_instalar.bat 8    -> reporte 08:00, watchdog 10:00
+REM  Default: 7 si no se pasa argumento
 REM =====================================================================
 
 SET HORA=%1
 IF "%HORA%"=="" SET HORA=7
 
-REM Construir hora en formato HH:00
+SET /A HORA_WD=%HORA%+2
+
+REM Formato HH:00
 IF %HORA% LSS 10 (SET HORA_FMT=0%HORA%:00) ELSE (SET HORA_FMT=%HORA%:00)
+IF %HORA_WD% LSS 10 (SET HORA_WD_FMT=0%HORA_WD%:00) ELSE (SET HORA_WD_FMT=%HORA_WD%:00)
 
-REM Ruta absoluta a este bat (sin el nombre del archivo)
-SET PROYECTO=%~dp0..
+SET BAT_DIR=%~dp0
 
-echo Instalando tarea programada para las %HORA_FMT%...
-echo Carpeta del proyecto: %PROYECTO%
+echo Instalando tareas programadas...
+echo Reporte: %HORA_FMT% ^| Watchdog: %HORA_WD_FMT%
+echo.
 
-schtasks /create /tn "ZobraDropiDiario" /tr "%~dp0windows_ejecutar.bat" /sc DAILY /st %HORA_FMT% /f
+REM --- Tarea 1: Reporte diario ---
+schtasks /create /tn "ZobraDropiDiario" /tr "%BAT_DIR%windows_ejecutar.bat" ^
+  /sc DAILY /st %HORA_FMT% /f ^
+  /ru "%USERNAME%" ^
+  /rl HIGHEST
 
 IF %ERRORLEVEL%==0 (
-    echo.
-    echo Tarea instalada correctamente.
-    echo.
-    echo Otros comandos utiles:
-    echo   schtasks /run /tn "ZobraDropiDiario"       :: forzar corrida ahora
-    echo   schtasks /delete /tn "ZobraDropiDiario"    :: eliminar la tarea
-    echo   schtasks /query /tn "ZobraDropiDiario"     :: ver estado
+    echo [OK] Reporte diario instalado a las %HORA_FMT%
 ) ELSE (
-    echo.
-    echo ERROR: No se pudo crear la tarea. Ejecuta este bat como Administrador.
+    echo [ERROR] Fallo al crear tarea de reporte. Ejecuta como Administrador.
+    goto :fin
 )
+
+REM --- Tarea 2: Watchdog ---
+schtasks /create /tn "ZobraDropiWatchdog" /tr "%BAT_DIR%windows_watchdog.bat" ^
+  /sc DAILY /st %HORA_WD_FMT% /f ^
+  /ru "%USERNAME%" ^
+  /rl HIGHEST
+
+IF %ERRORLEVEL%==0 (
+    echo [OK] Watchdog instalado a las %HORA_WD_FMT%
+) ELSE (
+    echo [ERROR] Fallo al crear tarea de watchdog.
+    goto :fin
+)
+
+REM --- Activar "despertar el equipo" para ambas tareas ---
+powershell -Command "& {$t=Get-ScheduledTask 'ZobraDropiDiario'; $t.Settings.WakeToRun=$true; Set-ScheduledTask -InputObject $t}" 2>nul
+powershell -Command "& {$t=Get-ScheduledTask 'ZobraDropiWatchdog'; $t.Settings.WakeToRun=$true; Set-ScheduledTask -InputObject $t}" 2>nul
+echo [OK] Wake-to-run activado (el PC se despertara automaticamente)
+
+echo.
+echo =========================================
+echo Sistema instalado:
+echo   %HORA_FMT% - Reporte Dropi
+echo   %HORA_WD_FMT% - Watchdog (recuperacion automatica)
+echo.
+echo Comandos utiles:
+echo   schtasks /run /tn "ZobraDropiDiario"     :: forzar reporte ahora
+echo   schtasks /run /tn "ZobraDropiWatchdog"   :: forzar watchdog ahora
+echo   schtasks /query /tn "ZobraDropiDiario"   :: ver estado
+echo =========================================
+
+:fin
