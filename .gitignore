@@ -1,0 +1,23 @@
+# Secretos: nunca subir a git
+config.local.env
+
+# Sesión de Dropi (token JWT + cookies del navegador)
+.token.json
+.browser_profile/
+
+# Marcadores de envío diario
+.sent_*
+
+# Datos generados día a día (pueden contener datos reales de clientes)
+snapshots/
+changes/
+logs/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Mac
+.DS_Store
